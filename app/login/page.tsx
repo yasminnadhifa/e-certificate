@@ -38,28 +38,65 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <Image src="/logo.png" alt="Logo" width={48} height={48} className="mx-auto mb-0 rounded-xl object-contain" />
-          <h1 className="text-xl font-semibold text-gray-900">Generator Sertifikat</h1>
-          <p className="mt-1 text-sm text-gray-500">Bundo Kanduang</p>
+    <div
+      className="flex min-h-screen items-center justify-center p-4"
+      style={{
+        backgroundImage: "url('/background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Overlay tipis — redup sedikit tanpa menghitamkan */}
+      <div className="absolute inset-0 bg-black/25" />
+
+      <div className="relative w-full max-w-sm">
+        {/* Header */}
+        <div className="mb-7 text-center">
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={48}
+            height={48}
+            className="mx-auto mb-3 rounded-xl object-contain"
+          />
+          <h1 className="text-xl font-semibold text-white drop-shadow-md">
+            Generator Sertifikat
+          </h1>
+          <p className="mt-0.5 text-sm text-white/70 drop-shadow">
+            Bundo Kanduang
+          </p>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        {/* Card — putih frosted, cukup solid */}
+        <div
+          className="rounded-2xl p-6"
+          style={{
+            background: "rgba(255, 255, 255, 0.45)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 255, 255, 0.6)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          }}
+        >
           <form onSubmit={handleLogin} className="space-y-4">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-600">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Username</label>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Username
+              </label>
               <input
                 type="text"
                 required
-                className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 transition-colors placeholder:text-gray-400 focus:border-[#7B1111] focus:outline-none focus:ring-1 focus:ring-[#7B1111]"
+                className="h-10 w-full rounded-lg px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7B1111]/40 transition-all"
+                style={{
+                  background: "rgba(255, 255, 255, 0.7)",
+                  border: "1px solid rgba(0, 0, 0, 0.12)",
+                }}
                 placeholder="Masukkan username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -67,11 +104,17 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Password
+              </label>
               <input
                 type="password"
                 required
-                className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 transition-colors placeholder:text-gray-400 focus:border-[#7B1111] focus:outline-none focus:ring-1 focus:ring-[#7B1111]"
+                className="h-10 w-full rounded-lg px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7B1111]/40 transition-all"
+                style={{
+                  background: "rgba(255, 255, 255, 0.7)",
+                  border: "1px solid rgba(0, 0, 0, 0.12)",
+                }}
                 placeholder="Masukkan password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -81,7 +124,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="h-9 w-full rounded-lg bg-[#7B1111] text-sm font-medium text-white transition-colors hover:bg-[#651010] disabled:opacity-50"
+              className="mt-1 h-10 w-full rounded-lg bg-[#7B1111] text-sm font-medium text-white transition-all hover:bg-[#651010] active:scale-[0.98] disabled:opacity-40"
             >
               {loading ? "Memproses..." : "Masuk"}
             </button>
