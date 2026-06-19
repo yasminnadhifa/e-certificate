@@ -32,6 +32,7 @@ interface CertificatePreview {
   dataUrl: string;
 }
 
+type HistoryScope = "all" | "me";
 const TEMPLATE_URL = new URL("./sertifikat.jpg", import.meta.url).href;
 
 function sanitizeFilename(name: string) {
@@ -64,6 +65,8 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
   const [limit, setLimit] = useState(user.limit);
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [templateImage, setTemplateImage] = useState<HTMLImageElement | null>(null);
+  const [historyScope, setHistoryScope] = useState<HistoryScope>("all");
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [limitDialogOpen, setLimitDialogOpen] = useState(false);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [zipDialogOpen, setZipDialogOpen] = useState(false);
@@ -76,51 +79,52 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
     const image = new globalThis.Image();
     image.src = TEMPLATE_URL;
 
-    const historyPromise = fetch("/api/history")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.history?.length > 0) {
-          const allNames: string[] = [];
-          data.history.forEach((entry: { names?: string[] }) => {
-            if (entry.names) allNames.push(...entry.names);
-          });
-          return allNames;
-        }
-        return [];
-      })
-      .catch(() => [] as string[]);
-
-    image.onload = async () => {
+    image.onload = () => {
       setTemplateImage(image);
       setTemplateLoaded(true);
-
-      const savedNames = await historyPromise;
-      if (savedNames.length > 0) {
-        const nextPreviews: CertificatePreview[] = [];
-        savedNames.forEach((name: string) => {
-          const canvas = document.createElement("canvas");
-          canvas.width = image.naturalWidth;
-          canvas.height = image.naturalHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-          ctx.font = `bold 40px Times New Roman, serif`;
-          ctx.fillStyle = "#2e0909";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.shadowColor = "rgba(255,255,255,0.4)";
-          ctx.shadowBlur = 6;
-          ctx.fillText(name, canvas.width / 2, (canvas.height * 40) / 100);
-          ctx.shadowBlur = 0;
-          nextPreviews.push({ name, dataUrl: canvas.toDataURL("image/jpeg", 0.95) });
-        });
-        setPreviews(nextPreviews);
-      }
     };
+
     image.onerror = () => {
       setStatus("Tidak dapat memuat template sertifikat.");
     };
   }, []);
+
+  useEffect(() => {
+    if (!templateImage) return;
+    setHistoryLoading(true);
+
+    fetch(`/api/history?scope=${historyScope}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.history?.length > 0) {
+          const nextPreviews: CertificatePreview[] = [];
+          data.history.forEach((entry: { names?: string[] }) => {
+            entry.names?.forEach((name) => {
+              const canvas = document.createElement("canvas");
+              canvas.width = templateImage.naturalWidth;
+              canvas.height = templateImage.naturalHeight;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) return;
+              ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
+              ctx.font = `bold 40px Times New Roman, serif`;
+              ctx.fillStyle = "#2e0909";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.shadowColor = "rgba(255,255,255,0.4)";
+              ctx.shadowBlur = 6;
+              ctx.fillText(name, canvas.width / 2, (canvas.height * 40) / 100);
+              ctx.shadowBlur = 0;
+              nextPreviews.push({ name, dataUrl: canvas.toDataURL("image/jpeg", 0.95) });
+            });
+          });
+          setPreviews(nextPreviews);
+        } else {
+          setPreviews([]);
+        }
+      })
+      .catch(() => setPreviews([]))
+      .finally(() => setHistoryLoading(false));
+  }, [templateImage, historyScope]);
 
   const remaining = useMemo(() => {
     if (isAdmin) return Infinity;
@@ -514,18 +518,51 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
 
               {/* Preview */}
               <div className="rounded-xl border border-gray-200 bg-white p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-gray-900">Preview</h2>
-                    <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                      {previews.length} hasil
-                    </span>
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-semibold text-gray-900">Preview</h2>
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        {previews.length} hasil
+                      </span>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryScope("all")}
+                          className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                            historyScope === "all"
+                              ? "bg-[#7B1111] text-white"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistoryScope("me")}
+                          className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                            historyScope === "me"
+                              ? "bg-[#7B1111] text-white"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          Milik Saya
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {canDownload && (
-                    <Button variant="secondary" size="sm" onClick={handleDownloadAllClick} disabled={loading}>
-                      Download Semua
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {historyLoading && (
+                      <span className="text-xs text-gray-500">Memuat preview...</span>
+                    )}
+                    {canDownload && (
+                      <Button variant="secondary" size="sm" onClick={handleDownloadAllClick} disabled={loading || historyLoading}>
+                        Download Semua
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {previews.length === 0 ? (

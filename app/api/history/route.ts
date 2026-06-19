@@ -5,7 +5,7 @@ import GenerateHistory from "@/models/GenerateHistory";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -18,7 +18,12 @@ export async function GET() {
   }
 
   const isAdmin = user.role === "ADMIN";
-  const filter = isAdmin ? {} : { userId: user._id };
+  const scope = new URL(request.url).searchParams.get("scope");
+  let filter: { userId: typeof user._id } | {} = { userId: user._id };
+
+  if (isAdmin) {
+    filter = scope === "me" ? { userId: user._id } : {};
+  }
 
   const history = await GenerateHistory.find(filter)
     .sort({ createdAt: -1 })
