@@ -34,14 +34,14 @@ export function Dialog({ open, onClose, children, className }: DialogProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto px-4 py-6">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-in fade-in"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95",
+          "relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 max-h-[calc(100vh-4rem)] overflow-y-auto",
           className
         )}
       >

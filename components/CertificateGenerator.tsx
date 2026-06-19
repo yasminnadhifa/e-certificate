@@ -10,6 +10,7 @@ import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Plus } from "lucide-react";
 
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import TutorialGuide from "@/components/TutorialGuide";
@@ -89,42 +90,46 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
     };
   }, []);
 
-  useEffect(() => {
+  const fetchHistoryPreviews = useCallback(async () => {
     if (!templateImage) return;
     setHistoryLoading(true);
 
-    fetch(`/api/history?scope=${historyScope}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.history?.length > 0) {
-          const nextPreviews: CertificatePreview[] = [];
-          data.history.forEach((entry: { names?: string[] }) => {
-            entry.names?.forEach((name) => {
-              const canvas = document.createElement("canvas");
-              canvas.width = templateImage.naturalWidth;
-              canvas.height = templateImage.naturalHeight;
-              const ctx = canvas.getContext("2d");
-              if (!ctx) return;
-              ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
-              ctx.font = `bold 40px Times New Roman, serif`;
-              ctx.fillStyle = "#2e0909";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.shadowColor = "rgba(255,255,255,0.4)";
-              ctx.shadowBlur = 6;
-              ctx.fillText(name, canvas.width / 2, (canvas.height * 40) / 100);
-              ctx.shadowBlur = 0;
-              nextPreviews.push({ name, dataUrl: canvas.toDataURL("image/jpeg", 0.95) });
-            });
-          });
-          setPreviews(nextPreviews);
-        } else {
-          setPreviews([]);
-        }
-      })
-      .catch(() => setPreviews([]))
-      .finally(() => setHistoryLoading(false));
-  }, [templateImage, historyScope]);
+    try {
+      const response = await fetch(`/api/history?scope=${historyScope}`);
+      const data = await response.json();
+      const nextPreviews: CertificatePreview[] = [];
+
+      data.history?.forEach((entry: { names?: string[] }) => {
+        entry.names?.forEach((name) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = templateImage.naturalWidth;
+          canvas.height = templateImage.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
+          ctx.font = `bold 40px Times New Roman, serif`;
+          ctx.fillStyle = "#2e0909";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.shadowColor = "rgba(255,255,255,0.4)";
+          ctx.shadowBlur = 6;
+          ctx.fillText(name, canvas.width / 2, (canvas.height * 40) / 100);
+          ctx.shadowBlur = 0;
+          nextPreviews.push({ name, dataUrl: canvas.toDataURL("image/jpeg", 0.95) });
+        });
+      });
+
+      setPreviews(nextPreviews);
+    } catch {
+      setPreviews([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyScope, templateImage]);
+
+  useEffect(() => {
+    fetchHistoryPreviews();
+  }, [fetchHistoryPreviews]);
 
   const remaining = useMemo(() => {
     if (isAdmin) return Infinity;
@@ -190,26 +195,15 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
         return;
       }
       setUsed(body.used);
+      await fetchHistoryPreviews();
     } catch {
       setStatus("Terjadi kesalahan server. Coba lagi nanti.");
       setLoading(false);
       return;
     }
 
-    const nextPreviews: CertificatePreview[] = [];
-    names.forEach((name) => {
-      const canvas = drawCertificate(name);
-      if (canvas) {
-        nextPreviews.push({
-          name,
-          dataUrl: canvas.toDataURL("image/jpeg", 0.95),
-        });
-      }
-    });
-
-    setPreviews(nextPreviews);
     setLoading(false);
-    setStatus(`${nextPreviews.length} sertifikat berhasil di-generate.`);
+    setStatus(`${names.length} sertifikat berhasil di-generate. Preview telah diperbarui.`);
   };
 
   const downloadPdf = (name: string) => {
@@ -333,10 +327,10 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
                 </div>
               </div>
 
-              <div className="rounded-xl border border-gray-200 bg-white p-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-900">Pengaturan Teks</h2>
-                  {isAdmin && (
+              {isAdmin && (
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-gray-900">Pengaturan Teks</h2>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -344,89 +338,89 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
                     >
                       {textEditable ? "Kunci" : "Edit"}
                     </Button>
-                  )}
-                </div>
-                <div className={`mt-4 space-y-3${textEditable ? "" : " pointer-events-none opacity-60"}`}>
-                  <div>
-                    <Label htmlFor="fontFamily">Font</Label>
-                    <select
-                      id="fontFamily"
-                      value={fontFamily}
-                      onChange={(e) => setFontFamily(e.target.value)}
-                      disabled={!textEditable}
-                      className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 transition-colors focus:border-[#7B1111] focus:outline-none focus:ring-1 focus:ring-[#7B1111] disabled:cursor-not-allowed"
-                    >
-                      <option value="Playfair Display, serif">Playfair Display</option>
-                      <option value="Georgia, serif">Georgia</option>
-                      <option value="Times New Roman, serif">Times New Roman</option>
-                      <option value="Garamond, serif">Garamond</option>
-                      <option value="Verdana, sans-serif">Verdana</option>
-                    </select>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`mt-4 space-y-3${textEditable ? "" : " pointer-events-none opacity-60"}`}>
                     <div>
-                      <Label htmlFor="fontSize">Ukuran</Label>
-                      <Input
-                        id="fontSize"
-                        type="number"
-                        min={20}
-                        max={120}
-                        value={fontSize}
-                        onChange={(e) => setFontSize(Number(e.target.value))}
-                        disabled={!textEditable}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="fontStyle">Gaya</Label>
+                      <Label htmlFor="fontFamily">Font</Label>
                       <select
-                        id="fontStyle"
-                        value={fontStyle}
-                        onChange={(e) => setFontStyle(e.target.value)}
+                        id="fontFamily"
+                        value={fontFamily}
+                        onChange={(e) => setFontFamily(e.target.value)}
                         disabled={!textEditable}
                         className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 transition-colors focus:border-[#7B1111] focus:outline-none focus:ring-1 focus:ring-[#7B1111] disabled:cursor-not-allowed"
                       >
-                        <option value="italic">Italic</option>
-                        <option value="bold italic">Bold Italic</option>
-                        <option value="normal">Normal</option>
-                        <option value="bold">Bold</option>
+                        <option value="Playfair Display, serif">Playfair Display</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="Times New Roman, serif">Times New Roman</option>
+                        <option value="Garamond, serif">Garamond</option>
+                        <option value="Verdana, sans-serif">Verdana</option>
                       </select>
                     </div>
-                  </div>
 
-                  <div>
-                    <Label htmlFor="fontColor">Warna</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="fontColor"
-                        type="color"
-                        value={fontColor}
-                        onChange={(e) => setFontColor(e.target.value)}
-                        disabled={!textEditable}
-                        className="h-9 w-10 rounded-md border border-gray-200 p-0.5 disabled:cursor-not-allowed"
-                      />
-                      <span className="font-mono text-xs text-gray-500">{fontColor}</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="fontSize">Ukuran</Label>
+                        <Input
+                          id="fontSize"
+                          type="number"
+                          min={20}
+                          max={120}
+                          value={fontSize}
+                          onChange={(e) => setFontSize(Number(e.target.value))}
+                          disabled={!textEditable}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fontStyle">Gaya</Label>
+                        <select
+                          id="fontStyle"
+                          value={fontStyle}
+                          onChange={(e) => setFontStyle(e.target.value)}
+                          disabled={!textEditable}
+                          className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 transition-colors focus:border-[#7B1111] focus:outline-none focus:ring-1 focus:ring-[#7B1111] disabled:cursor-not-allowed"
+                        >
+                          <option value="italic">Italic</option>
+                          <option value="bold italic">Bold Italic</option>
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <Label htmlFor="posY">Posisi vertikal</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="posY"
-                        type="range"
-                        min={10}
-                        max={90}
-                        value={posY}
-                        onChange={(e) => setPosY(Number(e.target.value))}
-                        disabled={!textEditable}
-                        className="h-1.5 w-full appearance-none rounded-full bg-gray-200 accent-[#7B1111] disabled:cursor-not-allowed"
-                      />
-                      <span className="min-w-8 text-center text-xs font-medium text-gray-500">{posY}%</span>
+                    <div>
+                      <Label htmlFor="fontColor">Warna</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="fontColor"
+                          type="color"
+                          value={fontColor}
+                          onChange={(e) => setFontColor(e.target.value)}
+                          disabled={!textEditable}
+                          className="h-9 w-10 rounded-md border border-gray-200 p-0.5 disabled:cursor-not-allowed"
+                        />
+                        <span className="font-mono text-xs text-gray-500">{fontColor}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="posY">Posisi vertikal</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="posY"
+                          type="range"
+                          min={10}
+                          max={90}
+                          value={posY}
+                          onChange={(e) => setPosY(Number(e.target.value))}
+                          disabled={!textEditable}
+                          className="h-1.5 w-full appearance-none rounded-full bg-gray-200 accent-[#7B1111] disabled:cursor-not-allowed"
+                        />
+                        <span className="min-w-8 text-center text-xs font-medium text-gray-500">{posY}%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Main */}
@@ -442,9 +436,21 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
                       </span>
                     )}
                   </div>
-                  <Button size="sm" onClick={handleGenerateClick} disabled={loading || limitExhausted}>
-                    Generate
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={handleGenerateClick} disabled={loading || limitExhausted}>
+                      Generate
+                    </Button>
+                    {names.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setNames([])}
+                      >
+                        Hapus semua
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {limitExhausted ? (
@@ -475,27 +481,54 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
                           ))}
                         </div>
                       )}
-                      <input
-                        type="text"
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            const trimmed = nameInput.trim();
-                            if (trimmed) {
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          type="text"
+                          value={nameInput}
+                          onChange={(e) => setNameInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const trimmed = nameInput.trim();
+                              if (trimmed) {
+                                if (!isAdmin && names.length >= remaining) {
+                                  setLimitDialogOpen(true);
+                                  return;
+                                }
+                                setNames([...names, trimmed]);
+                                setNameInput("");
+                              }
+                            }
+                          }}
+                          placeholder={names.length === 0 ? "Ketik nama lalu tekan Enter atau klik Tambah" : "Tambah nama lagi..."}
+                          className="flex-1 border-0 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                        />
+                        <div className="flex flex-col items-start gap-2 sm:items-end">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-full border-[#7B1111] bg-[#f7ebe8] text-[#7B1111] hover:bg-[#7B1111] hover:text-white focus-visible:ring-[#7B1111]"
+                            onClick={() => {
+                              const trimmed = nameInput.trim();
+                              if (!trimmed) return;
                               if (!isAdmin && names.length >= remaining) {
                                 setLimitDialogOpen(true);
                                 return;
                               }
                               setNames([...names, trimmed]);
                               setNameInput("");
-                            }
-                          }
-                        }}
-                        placeholder={names.length === 0 ? "Ketik nama lalu tekan Enter..." : "Tambah nama lagi..."}
-                        className="w-full border-0 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
-                      />
+                            }}
+                            disabled={!nameInput.trim()}
+                          >
+                            <Plus size={14} />
+                            Tambah
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Masukkan nama satu per satu. Bisa langsung tekan Enter atau klik Tambah. Tekan Generate setelah semua nama sudah dimasukkan.
+                      </p>
                     </div>
                     {names.length > 0 && (
                       <button
@@ -553,7 +586,7 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {historyLoading && (
                       <span className="text-xs text-gray-500">Memuat preview...</span>
                     )}
@@ -575,9 +608,9 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
                   </div>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {previews.map((item) => (
+                    {previews.map((item, index) => (
                       <div
-                        key={item.name}
+                        key={`${item.name}-${index}`}
                         className="group overflow-hidden rounded-lg border border-gray-200 transition-shadow hover:shadow-md"
                       >
                         <img src={item.dataUrl} alt={`Sertifikat ${item.name}`} className="w-full object-cover" />
@@ -623,17 +656,18 @@ export default function CertificateGenerator({ user }: CertificateGeneratorProps
         <DialogHeader>
           <DialogTitle>Konfirmasi Generate</DialogTitle>
           <DialogDescription>
-            Anda akan men-generate {names.length} sertifikat.
-            {!isAdmin && <> Limit Anda akan berkurang dari {remaining} menjadi {remaining - names.length}.</>}
-            {" "}Apakah Anda yakin?
+            Sertifikat akan digenerate dan <strong>tidak dapat diubah</strong> setelah proses ini. {isAdmin ? "" : `Limit Anda akan berkurang dari ${remaining} menjadi ${Math.max(remaining - names.length, 0)}.`}
+          </DialogDescription>
+          <DialogDescription>
+            Pastikan semua data sudah benar sebelum melanjutkan.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setGenerateDialogOpen(false)}>
-            Batal
+            Periksa Lagi
           </Button>
           <Button onClick={handleGenerateConfirm} disabled={loading}>
-            {loading ? "Memproses..." : "Ya, Generate"}
+            {loading ? "Memproses..." : "Ya, Generate Sekarang"}
           </Button>
         </DialogFooter>
       </Dialog>
